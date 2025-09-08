@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.8.2'  # Updated to a supported version
+          python-version: '3.12.3'  # Updated to a supported version
 
       - name: Install dependencies
         run: |
@@ -32,7 +32,7 @@ jobs:
           # Create a simple test file
           echo "import pandas as pd" > test_elt.py
           echo "from elt-dag import extract_and_load" >> test_elt.py  # Adjust if function name differs
-          echo "def test_extract(): extract_and_load(); df = pd.read_sql('SELECT * FROM staging_sales', 'postgresql://postgres:yourpassword@localhost/postgres'); assert len(df) > 0" >> test_elt.py
+          echo "def test_extract(): extract_and_load(); df = pd.read_sql('SELECT * FROM staging_sales', 'postgresql://postgres:postgres@localhost/postgres'); assert len(df) > 0" >> test_elt.py
           pip install pytest
           pytest test_elt.py  # Runs test (assumes Postgres is local; adjust conn if needed)
 
