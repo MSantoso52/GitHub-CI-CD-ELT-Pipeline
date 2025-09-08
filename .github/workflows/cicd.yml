@@ -1,0 +1,51 @@
+name: CI/CD for Airflow ETL DAG
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test-deploy:
+    runs-on: self-hosted  # Uses your local runner to access Minikube
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4  # Downloads your repo code
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'  # Matches your DAG's Python
+
+      - name: Install dependencies
+        run: |
+          pip install apache-airflow pandas sqlalchemy psycopg2-binary  # Airflow and libs for testing
+
+      - name: Lint code (Build/Check Syntax)
+        run: |
+          pip install flake8
+          flake8 elt-dag.py  # Checks for Python style errors
+
+      - name: Unit Test extract_and_load function
+        run: |
+          # Create a simple test file
+          echo "import pandas as pd" > test_elt.py
+          echo "from elt-dag import extract_and_load" >> test_elt.py  # Adjust if function name differs
+          echo "def test_extract(): extract_and_load(); df = pd.read_sql('SELECT * FROM staging_sales', 'postgresql://postgres:yourpassword@localhost/postgres'); assert len(df) > 0" >> test_elt.py
+          pip install pytest
+          pytest test_elt.py  # Runs test (assumes Postgres is local; adjust conn if needed)
+
+      - name: Deploy DAG to Airflow on Minikube
+        run: |
+          # Copy DAG and JSON to Airflow pod
+          POD_NAME=$(kubectl get pods -n airflow -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
+          kubectl cp elt-dag.py airflow/$POD_NAME:/opt/airflow/dags/elt-dag.py -n airflow
+          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n airflow
+          # Restart scheduler to pick up new DAG
+          kubectl rollout restart deployment/airflow-scheduler -n airflow
+
+      - name: Test DAG in Airflow
+        run: |
+          # Use Airflow CLI to test (install airflow if not)
+          airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)  # Tests without running tasks
