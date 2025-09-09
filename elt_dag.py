@@ -1,23 +1,26 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator  # Corrected import (was providers.standard, but it's operators.python)
+from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import pandas as pd
 from datetime import datetime
 from sqlalchemy.types import Text
-import os  # Add this import for path handling
+import os # Add for path handling
+
 
 default_args = {
     'owner': 'data_engineer',
     'start_date': datetime(2024, 1, 1),
 }
 
-dag = DAG('elt_sales_pipeline', default_args=default_args, schedule=None,  # Fixed DAG ID to match test (was elt_sales_pipeline2)
+
+dag = DAG('elt_sales_pipeline2', default_args=default_args, schedule=None,
           catchup=False)
+
 
 def extract_and_load():
     # Extract and flatten JSON
-    file_path = os.path.join(os.path.dirname(__file__), 'sales_record.json')  # Use relative path
+    file_path = os.path.join(os.path.dirname(__file__), 'sales_record.json')
     df = pd.read_json(file_path)
     df_flat = pd.json_normalize(df.to_dict('records'))
     # Replace dots in column names
@@ -33,11 +36,13 @@ def extract_and_load():
                        'customer_info_age': Text
                    })  # Force problematic cols as text
 
+
 extract_load_task = PythonOperator(
     task_id='extract_and_load',
     python_callable=extract_and_load,
     dag=dag
 )
+
 
 create_clean_table = SQLExecuteQueryOperator(
     task_id='create_clean_table',
@@ -65,6 +70,7 @@ create_clean_table = SQLExecuteQueryOperator(
     dag=dag
 )
 
+
 cleanse_data = SQLExecuteQueryOperator(
     task_id='cleanse_data',
     conn_id='postgres_conn',
@@ -75,7 +81,7 @@ cleanse_data = SQLExecuteQueryOperator(
         order_id,
         item_name,
         CASE
-            WHEN TRIM(quantity) ~ E'^[0-9]+(\\.[0-9]+)?$'
+            WHEN TRIM(quantity) ~ E'^[0-9]+(\\\\[0-9]+)?$'
             AND TRIM(quantity) != ''
             THEN TRIM(quantity)::NUMERIC::INTEGER
             ELSE NULL
@@ -88,7 +94,7 @@ cleanse_data = SQLExecuteQueryOperator(
         customer_info_customer_id,
         customer_info_email,
         CASE
-            WHEN TRIM(customer_info_age) ~ E'^[0-9]+(\\.[0-9]+)?$'
+            WHEN TRIM(customer_info_age) ~ E'^[0-9]+(\\\\[0-9]+)?$'
             AND TRIM(customer_info_age) != ''
             THEN TRIM(customer_info_age)::NUMERIC::INTEGER
             ELSE NULL
@@ -102,5 +108,6 @@ cleanse_data = SQLExecuteQueryOperator(
     """,
     dag=dag
 )
+
 
 extract_load_task >> create_clean_table >> cleanse_data
