@@ -11,37 +11,48 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4  # Downloads your repo code
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  # Use a stable version
+          python-version: '3.12'  # Matches runner's Python version (log showed 3.12.11)
 
       - name: Install dependencies
         run: |
-          pip install apache-airflow==2.9.3 pandas sqlalchemy psycopg2-binary
+          pip install apache-airflow pandas sqlalchemy psycopg2-binary  # Airflow and libs for testing
 
       - name: Lint code (Build/Check Syntax)
         run: |
           pip install flake8
-          flake8 elt-dag.py
+          flake8 elt-dag.py  # Checks for Python style errors
 
       - name: Unit Test extract_and_load function
         run: |
-          echo "import pandas as pd" > test_elt.py
-          echo "from elt-dag import extract_and_load" >> test_elt.py
-          echo "def test_extract(): extract_and_load(); df = pd.read_sql('SELECT * FROM staging_sales', 'postgresql://postgres:postgres@localhost/postgres'); assert len(df) > 0" >> test_elt.py
+          cat > test_elt.py << 'EOF'
+          import pandas as pd
+          from elt-dag import extract_and_load
+
+          def test_extract():
+            extract_and_load()
+            conn_str = 'postgresql://postgres:postgres@localhost/postgres'
+            df = pd.read_sql('SELECT * FROM staging_sales', conn_str)
+            assert len(df) > 0
+          EOF
           pip install pytest
-          pytest test_elt.py
+          pytest test_elt.py --verbose  # Assumes Postgres is accessible; adjust conn_str if needed
+          rm -f test_elt.py  # Clean up test file
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
+          # Copy DAG and JSON to Airflow pod
           POD_NAME=$(kubectl get pods -n airflow -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
           kubectl cp elt-dag.py airflow/$POD_NAME:/opt/airflow/dags/elt-dag.py -n airflow
           kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n airflow
+          # Restart scheduler to pick up new DAG
           kubectl rollout restart deployment/airflow-scheduler -n airflow
 
       - name: Test DAG in Airflow
         run: |
-          airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)
+          # Use Airflow CLI to test (install airflow if not)
+          airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)  # Tests without running tasks
