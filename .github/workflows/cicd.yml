@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-test-deploy:
-    runs-on: ubuntu-latest  # Self-hosted runner with Minikube access; ensure minikube/kubectl installed
+    runs-on: ubuntu-latest  # Self-hosted runner with Minikube access; ensure minikube/kubectl/helm installed
 
     steps:
       - name: Checkout code
@@ -24,7 +24,7 @@ jobs:
 
       - name: Lint code (Build/Check Syntax)
         run: |
-          flake8 elt_dag.py  # Fixed filename to match DOCUMENT (was elt_dag.py)
+          flake8 elt_dag.py  # Fixed filename to match actual file
 
       - name: Unit Test extract_and_load function
         run: |
@@ -93,11 +93,11 @@ jobs:
               mock_engine = MagicMock()
               mock_hook_instance.get_sqlalchemy_engine.return_value = mock_engine
       
-              with patch('elt3_dag.pd.read_json', mock_read_json), \
-               patch('elt3_dag.os.path.join', return_value='/fake/path'), \
-               patch('elt3_dag.PostgresHook', return_value=mock_hook_instance) as mock_postgres_class, \
-               patch('elt3_dag.pd.json_normalize') as mock_normalize, \
-               patch('pandas.DataFrame.to_sql') as mock_to_sql:
+              with patch('elt_dag.pd.read_json', mock_read_json), \
+                   patch('elt_dag.os.path.join', return_value='/fake/path'), \
+                   patch('elt_dag.PostgresHook', return_value=mock_hook_instance) as mock_postgres_class, \
+                   patch('elt_dag.pd.json_normalize') as mock_normalize, \
+                   patch('pandas.DataFrame.to_sql') as mock_to_sql:
               
                 # Set up mock_normalize to return expected_df (after flattening/renaming simulation)
                 mock_normalize.return_value = expected_df
@@ -140,10 +140,10 @@ jobs:
               # Compare the actual flattened DF to expected
               pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), expected_df.reset_index(drop=True))
 
-            if __name__ == '__main__':
-              unittest.main(verbosity=2, exit=False)
+          if __name__ == '__main__':
+            unittest.main(verbosity=2, exit=False)
           EOF
-          python test_elt.py  # Run the generated test file (add this to actually execute it)
+          python test_elt.py  # Run the generated test file
 
       - name: Start Minikube (if not running)
         run: |
@@ -159,18 +159,32 @@ jobs:
           # Update kubeconfig context to minikube
           kubectl config use-context minikube
 
+      - name: Install Airflow in elt-pipeline Namespace
+        run: |
+          # Add Helm repo for Airflow (if not already added)
+          helm repo add apache-airflow https://airflow.apache.org
+          helm repo update
+          # Create namespace if not exists
+          kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f -
+          # Install/upgrade Airflow using Helm chart (use values.yaml if in repo; customize postgres_conn_id, etc.)
+          helm upgrade --install airflow apache-airflow/airflow \
+            --namespace elt-pipeline \
+            --values values.yaml \  # Assumes values.yaml in repo; remove if using defaults and add --set executor=KubernetesExecutor, etc.
+            --set postgresql.enabled=true \  # Enable PostgreSQL subchart
+            --set dags.gitSync.enabled=true \  # Optional: For git-sync if needed; adjust as per your setup
+          # Wait for scheduler pod to be ready (standard Helm label)
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=scheduler -n elt-pipeline --timeout=600s
+
       - name: Verify Airflow Namespace and Pod
         run: |
-          # Ensure namespace exists (create if not)
-          kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f -
           # Wait for scheduler pod to be ready (use correct label selector for standard Airflow Helm deployment)
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=airflow-scheduler-748c98ffc6-wt5dw -n elt-pipeline --timeout=300s
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=airflow-scheduler -n elt-pipeline --timeout=300s
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
-          # Copy DAG and JSON to Airflow pod (fixed filename)
-          POD_NAME=$(kubectl get pods -n elt-pipeline -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
-          kubectl cp elt3_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_sales_pipeline.py -n elt-pipeline  # Renamed to match DAG id
+          # Copy DAG and JSON to Airflow pod (fixed filename and label)
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}')
+          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_sales_pipeline.py -n elt-pipeline  # Renamed to match DAG id
           kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n elt-pipeline  # Assumes sales_record.json is in repo
           # Restart scheduler to pick up new DAG
           kubectl rollout restart deployment/airflow-scheduler -n elt-pipeline
@@ -180,6 +194,6 @@ jobs:
       - name: Test DAG in Airflow
         run: |
           # Get pod name again after restart
-          POD_NAME=$(kubectl get pods -n elt-pipeline -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}')
           # Exec into pod and run airflow dags test (assumes airflow CLI is available in pod)
           kubectl exec -n elt-pipeline $POD_NAME -- airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)
