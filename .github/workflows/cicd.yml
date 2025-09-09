@@ -163,8 +163,10 @@ jobs:
         run: |
           # Ensure namespace exists (create if not)
           kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f -
+          # Wait for scheduler pod to be ready (use correct label selector for standard Airflow Helm deployment)
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=scheduler -n elt-pipeline --timeout=300s
           # Wait for scheduler pod to be ready (assumes Helm/chart deployment exists)
-          kubectl wait --for=condition=Ready pod -l component=scheduler -n elt-pipeline --timeout=300s
+          # kubectl wait --for=condition=Ready pod -l component=scheduler -n elt-pipeline --timeout=300s
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
