@@ -35,7 +35,7 @@ jobs:
           from sqlalchemy.types import Text
           import sys
           sys.path.insert(0, '.')  # Ensure current dir is in path for import
-          from elt3_dag import extract_and_load  # Matches actual filename
+          from elt_dag import extract_and_load  # Matches actual filename
 
           class TestExtractAndLoad(unittest.TestCase):
             def test_extract_and_load(self):
