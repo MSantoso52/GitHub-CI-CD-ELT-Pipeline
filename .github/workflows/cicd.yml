@@ -167,7 +167,7 @@ jobs:
           # Create namespace if not exists
           kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f -
           # Install/upgrade Airflow using Helm chart (use values.yaml if in repo; customize postgres_conn_id, etc.)
-          helm install airflow apache-airflow/airflow \
+          helm upgrade --install airflow apache-airflow/airflow \
             --namespace elt-pipeline \
             --values values.yaml \  # Assumes values.yaml in repo; remove if using defaults and add --set executor=KubernetesExecutor, etc.
             --set postgresql.enabled=true \  # Enable PostgreSQL subchart
