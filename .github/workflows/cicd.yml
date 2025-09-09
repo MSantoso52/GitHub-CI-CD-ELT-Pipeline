@@ -62,6 +62,27 @@ jobs:
                   "notes": ["Note1"]
               }
               
+              # Create expected flattened DataFrame for comparison
+              expected_data = {
+                  'order_id': ['ORD001'],
+                  'item_name': ['Widget A'],
+                  'quantity': ['2'],
+                  'price_per_unit': ['10.50'],
+                  'total_price': ['$21.00'],
+                  'order_date': ['2024-01-01'],
+                  'region': ['North'],
+                  'payment_method': ['Credit'],
+                  'status': ['Shipped'],
+                  'notes': ['Note1'],
+                  'customer_info_customer_id': ['CUST001'],
+                  'customer_info_email': ['a@example.com'],
+                  'customer_info_age': ['30'],
+                  'customer_info_address_street': ['123 Main St'],
+                  'customer_info_address_city': ['Anytown'],
+                  'customer_info_address_zip': ['12345']
+              }
+              expected_df = pd.DataFrame(expected_data)
+              
               # Mock pd.read_json to return known df
               mock_df = MagicMock()
               mock_df.to_dict.return_value = sample_json
@@ -78,14 +99,19 @@ jobs:
               with patch('elt_dag.pd.read_json', mock_read_json), \
                    patch('elt_dag.os.path.join', return_value='/fake/path'), \
                    patch('elt_dag.PostgresHook', return_value=mock_hook), \
+                   patch('elt_dag.pd.json_normalize') as mock_normalize, \
                    patch('pandas.DataFrame.to_sql') as mock_to_sql:
+                  
+                  # Set up mock_normalize to return expected_df (with columns already renamed in test for simplicity)
+                  mock_normalize.return_value = expected_df
                   
                   extract_and_load()
               
               # Assertions
-              mock_read_json.called_once()
+              mock_read_json.assert_called_once()
               mock_hook.assert_called_once_with(postgres_conn_id='postgres_conn')
               mock_engine.connect.assert_called_once()
+              mock_normalize.assert_called_once()
               mock_to_sql.assert_called_once()
               
               # Verify to_sql args
@@ -103,11 +129,13 @@ jobs:
                   'customer_info_customer_id', 'customer_info_email', 'customer_info_age',
                   'customer_info_address_street', 'customer_info_address_city', 'customer_info_address_zip'
               ]
-              pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), df_flat.reset_index(drop=True))  # Placeholder; in real test, compare to expected df
               assert list(df_flat.columns) == expected_columns, f"Expected {expected_columns}, got {list(df_flat.columns)}"
               assert len(df_flat) == 1  # From sample
               assert df_flat['customer_info_age'].dtype == 'object'  # Text/string before SQL cast
               assert df_flat['order_id'].iloc[0] == 'ORD001'  # Sample value check
+              
+              # Compare the actual flattened DF to expected
+              pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), expected_df.reset_index(drop=True))
 
           if __name__ == '__main__':
               test_extract_and_load()
