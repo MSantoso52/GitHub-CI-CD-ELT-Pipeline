@@ -31,13 +31,14 @@ jobs:
         run: |
           cat > test_elt.py << 'EOF'
           import pandas as pd
-          from elt-dag import extract_and_load
+          import elt_dag  # Dynamically import the hyphenated module
+          from elt_dag import extract_and_load  # Now the function is available
 
           def test_extract():
-            extract_and_load()
-            conn_str = 'postgresql://postgres:postgres@localhost/postgres'
-            df = pd.read_sql('SELECT * FROM staging_sales', conn_str)
-            assert len(df) > 0
+              extract_and_load()
+              conn_str = 'postgresql://postgres:postgres@localhost/postgres'
+              df = pd.read_sql('SELECT * FROM staging_sales', conn_str)
+              assert len(df) > 0
           EOF
           pip install pytest
           pytest test_elt.py --verbose  # Assumes Postgres is accessible; adjust conn_str if needed
