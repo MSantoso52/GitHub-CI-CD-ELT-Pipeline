@@ -24,7 +24,7 @@ jobs:
 
       - name: Lint code (Build/Check Syntax)
         run: |
-          flake8 elt3_dag.py  # Fixed filename to match DOCUMENT (was elt_dag.py)
+          flake8 elt_dag.py  # Fixed filename to match DOCUMENT (was elt_dag.py)
 
       - name: Unit Test extract_and_load function
         run: |
