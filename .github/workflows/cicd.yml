@@ -20,22 +20,13 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # pip install apache-airflow pandas sqlalchemy psycopg2-binary  # Airflow and libs for testing
           pip install apache-airflow apache-airflow-providers-postgres pandas sqlalchemy psycopg2-binary
 
       - name: Lint code (Build/Check Syntax)
         run: |
           pip install flake8
           flake8 elt_dag.py  # Checks for Python style errors
-
-      - name: Port-forward PostgreSQL service
-        run: |
-          kubectl port-forward svc/airflow-postgresql -n airflow 5432:5432 &
-          sleep 5  # Wait for port-forward to establish
-
-      - name: Configure Airflow metadata connection and add data connection
-        run: |
-          export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="postgresql://postgres:postgres@localhost:5432/airflow"
-          airflow connections add postgres_conn --conn-type postgres --conn-uri 'postgresql://postgres:postgres@localhost:5432/postgres'
 
       - name: Unit Test extract_and_load function
         run: |
@@ -46,18 +37,13 @@ jobs:
 
           def test_extract():
               extract_and_load()
-              conn_str = 'postgresql://postgres:postgres@localhost:5432/postgres'
+              conn_str = 'postgresql://postgres:postgres@localhost/postgres'
               df = pd.read_sql('SELECT * FROM staging_sales', conn_str)
               assert len(df) > 0
           EOF
           pip install pytest
-          pytest test_elt.py --verbose  # Assumes Postgres is accessible via port-forward
+          pytest test_elt.py --verbose  # Assumes Postgres is accessible; adjust conn_str if needed
           rm -f test_elt.py  # Clean up test file
-
-      - name: Stop port-forward
-        if: always()  # Ensure this runs even if previous steps fail
-        run: |
-          pkill -f "kubectl port-forward"
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
