@@ -31,36 +31,89 @@ jobs:
         run: |
           cat > test_elt.py << 'EOF'
           import pandas as pd
-          import os
           from unittest.mock import patch, MagicMock
           import sys
+          import json
           sys.path.insert(0, '.')  # Ensure current dir is in path for import
           from elt_dag import extract_and_load  # Import the function
 
           def test_extract_and_load():
-              # Mock the PostgresHook and SQLAlchemy engine to avoid real DB connection
+              # Sample JSON data to mock (based on expected structure)
+              sample_json = {
+                  "order_id": ["ORD001"],
+                  "item_name": ["Widget A"],
+                  "quantity": ["2"],
+                  "price_per_unit": ["10.50"],
+                  "total_price": ["$21.00"],
+                  "order_date": ["2024-01-01"],
+                  "region": ["North"],
+                  "payment_method": ["Credit"],
+                  "customer_info": [{
+                      "customer_id": "CUST001",
+                      "email": "a@example.com",
+                      "age": "30",  # String to test dtype
+                      "address": {
+                          "street": "123 Main St",
+                          "city": "Anytown",
+                          "zip": "12345"
+                      }
+                  }],
+                  "status": ["Shipped"],
+                  "notes": ["Note1"]
+              }
+              
+              # Mock pd.read_json to return known df
+              mock_df = MagicMock()
+              mock_df.to_dict.return_value = sample_json
+              mock_read_json = MagicMock(return_value=mock_df)
+              
+              # Mock PostgresHook and engine
               mock_hook = MagicMock()
               mock_engine = MagicMock()
-              mock_engine.connect.return_value.__exit__.return_value = None  # Mock context manager
-              mock_engine.connect.return_value.execute.return_value = None  # Mock execute if needed
+              mock_conn = MagicMock()
+              mock_engine.connect.return_value.__enter__.return_value = mock_conn
+              mock_engine.connect.return_value.__exit__.return_value = False
+              mock_hook.get_sqlalchemy_engine.return_value = mock_engine
               
-              with patch('elt_dag.PostgresHook') as mock_pg_hook:
-                  mock_pg_hook.return_value.get_sqlalchemy_engine.return_value = mock_engine
+              with patch('elt_dag.pd.read_json', mock_read_json), \
+                   patch('elt_dag.os.path.join', return_value='/fake/path'), \
+                   patch('elt_dag.PostgresHook', return_value=mock_hook), \
+                   patch('pandas.DataFrame.to_sql') as mock_to_sql:
+                  
                   extract_and_load()
               
-              # Verify extraction happened (check that to_sql was called with expected data)
+              # Assertions
+              assert mock_read_json.called_once()
+              mock_hook.assert_called_once_with(postgres_conn_id='postgres_conn')
               mock_engine.connect.assert_called_once()
-              pd_mock = mock_engine.connect.return_value.execute.call_args[0][0]  # This is approximate; adjust if needed
+              mock_to_sql.assert_called_once()
               
-              # Alternative: Verify by mocking pd.read_json and checking df_flat
-              # But since we mock the hook, we can also patch os.path to ensure file load
-              # For simplicity, assert the mock was called (confirms function ran without error)
-              mock_pg_hook.assert_called_once_with(postgres_conn_id='postgres_conn')
+              # Verify to_sql args
+              to_sql_args, to_sql_kwargs = mock_to_sql.call_args
+              df_flat = to_sql_args[0]  # The flattened df passed to to_sql
+              assert to_sql_kwargs['name'] == 'staging_sales'
+              assert to_sql_kwargs['if_exists'] == 'replace'
+              assert to_sql_kwargs['index'] is False
+              assert to_sql_kwargs['dtype']['customer_info_age'] == 'TEXT'  # From sqlalchemy.types.Text
               
-              # To verify data: We'd need to capture the df, but for now, test that function completes
-              # (In a full test, you'd patch pd.read_json to return known data and assert on to_sql args)
+              # Verify df_flat (flattening and column renaming)
+              expected_columns = [
+                  'order_id', 'item_name', 'quantity', 'price_per_unit', 'total_price',
+                  'order_date', 'region', 'payment_method', 'status', 'notes',
+                  'customer_info_customer_id', 'customer_info_email', 'customer_info_age',
+                  'customer_info_address_street', 'customer_info_address_city', 'customer_info_address_zip'
+              ]
+              pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), df_flat.reset_index(drop=True))  # Placeholder; in real test, compare to expected df
+              assert list(df_flat.columns) == expected_columns, f"Expected {expected_columns}, got {list(df_flat.columns)}"
+              assert len(df_flat) == 1  # From sample
+              assert df_flat['customer_info_age'].dtype == 'object'  # Text/string before SQL cast
+              assert df_flat['order_id'].iloc[0] == 'ORD001'  # Sample value check
+
+          if __name__ == '__main__':
+              test_extract_and_load()
+              print("All tests passed!")
           EOF
-          pytest test_elt.py --verbose  # Now mocks DB, so no connection needed
+          python test_elt.py  # Run directly with python for simplicity; or use pytest if preferred
           rm -f test_elt.py  # Clean up test file
 
       - name: Deploy DAG to Airflow on Minikube
