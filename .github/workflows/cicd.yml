@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-test-deploy:
-    runs-on: ubuntu-latest  # Uses your local runner to access Minikube
+    runs-on: ubuntu-latest  # Self-hosted runner with Minikube access; ensure minikube/kubectl installed
 
     steps:
       - name: Checkout code
@@ -16,15 +16,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  # Matches runner's Python version (log showed 3.12.11)
+          python-version: '3.12'  # Matches runner's Python version
 
       - name: Install dependencies
         run: |
-          pip install apache-airflow apache-airflow-providers-postgres pandas sqlalchemy psycopg2-binary pytest flake8  # Moved flake8 here
+          pip install apache-airflow apache-airflow-providers-postgres pandas sqlalchemy psycopg2-binary pytest flake8
 
       - name: Lint code (Build/Check Syntax)
         run: |
-          flake8 elt_dag.py  # Checks for Python style errors
+          flake8 elt3_dag.py  # Fixed filename to match DOCUMENT (was elt_dag.py)
 
       - name: Unit Test extract_and_load function
         run: |
@@ -35,11 +35,11 @@ jobs:
           from sqlalchemy.types import Text
           import sys
           sys.path.insert(0, '.')  # Ensure current dir is in path for import
-          from elt3_dag import extract_and_load  # Updated to match actual filename from DOCUMENT
+          from elt3_dag import extract_and_load  # Matches actual filename
 
           class TestExtractAndLoad(unittest.TestCase):
             def test_extract_and_load(self):
-            # Sample JSON data to mock (based on expected structure; using list of dicts for read_json)
+              # Sample JSON data to mock (based on expected structure; using list of dicts for read_json)
               sample_data = [{
                 "order_id": "ORD001",
                 "item_name": "Widget A",
@@ -61,98 +61,125 @@ jobs:
                 },
                 "status": "Shipped",
                 "notes": "Note1"
-                }]
-        
-            # Mock pd.read_json to return known df (real DataFrame, not MagicMock, to avoid to_dict issues)
-            sample_df = pd.DataFrame(sample_data)
-            mock_read_json = MagicMock(return_value=sample_df)
-        
-            # Expected flattened DataFrame after json_normalize and column renaming
-            expected_data = {
-              'order_id': ['ORD001'],
-              'item_name': ['Widget A'],
-              'quantity': ['2'],
-              'price_per_unit': ['10.50'],
-              'total_price': ['$21.00'],
-              'order_date': ['2024-01-01'],
-              'region': ['North'],
-              'payment_method': ['Credit'],
-              'status': ['Shipped'],
-              'notes': ['Note1'],
-              'customer_info_customer_id': ['CUST001'],
-              'customer_info_email': ['a@example.com'],
-              'customer_info_age': ['30'],
-              'customer_info_address_street': ['123 Main St'],
-              'customer_info_address_city': ['Anytown'],
-              'customer_info_address_zip': ['12345']
-            }
-            expected_df = pd.DataFrame(expected_data)
-        
-            # Mock PostgresHook instance and engine (no connect context manager needed)
-            mock_hook_instance = MagicMock()
-            mock_engine = MagicMock()
-            mock_hook_instance.get_sqlalchemy_engine.return_value = mock_engine
-        
-            with patch('elt3_dag.pd.read_json', mock_read_json), \
-             patch('elt3_dag.os.path.join', return_value='/fake/path'), \
-             patch('elt3_dag.PostgresHook', return_value=mock_hook_instance) as mock_postgres_class, \
-             patch('elt3_dag.pd.json_normalize') as mock_normalize, \
-             patch('pandas.DataFrame.to_sql') as mock_to_sql:
-            
-            # Set up mock_normalize to return expected_df (after flattening/renaming simulation)
-            mock_normalize.return_value = expected_df
-            
-            extract_and_load()
-        
-            # Assertions on class mock (constructor call)
-            mock_postgres_class.assert_called_once_with(postgres_conn_id='postgres_conn')
-        
-            # Assertions on instance methods
-            mock_hook_instance.get_sqlalchemy_engine.assert_called_once()
-        
-            # Other assertions
-            mock_read_json.assert_called_once_with('/fake/path')
-            mock_normalize.assert_called_once_with(sample_df.to_dict('records'))
-            mock_to_sql.assert_called_once()
-        
-            # Verify to_sql args (passed df_flat, engine as con, and kwargs)
-            to_sql_args, to_sql_kwargs = mock_to_sql.call_args
-            df_flat, con, *_ = to_sql_args  # First arg: df, second: con (engine)
-            self.assertIs(con, mock_engine)  # Verify engine is passed as con
-            self.assertEqual(to_sql_kwargs['name'], 'staging_sales')
-            self.assertEqual(to_sql_kwargs['if_exists'], 'replace')
-            self.assertFalse(to_sql_kwargs['index'])
-            self.assertIn('customer_info_age', to_sql_kwargs['dtype'])
-            self.assertIsInstance(to_sql_kwargs['dtype']['customer_info_age'], Text)  # Check type, not string 'Text'
-        
-            # Verify df_flat (flattening and column renaming)
-            expected_columns = [
-              'order_id', 'item_name', 'quantity', 'price_per_unit', 'total_price',
-              'order_date', 'region', 'payment_method', 'status', 'notes',
-              'customer_info_customer_id', 'customer_info_email', 'customer_info_age',
-              'customer_info_address_street', 'customer_info_address_city', 'customer_info_address_zip'
-            ]
-            self.assertListEqual(list(df_flat.columns), expected_columns)
-            self.assertEqual(len(df_flat), 1)  # From sample
-            self.assertEqual(df_flat['customer_info_age'].dtype, 'object')  # String before SQL cast
-            self.assertEqual(df_flat['order_id'].iloc[0], 'ORD001')  # Sample value check
-        
-            # Compare the actual flattened DF to expected
-            pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), expected_df.reset_index(drop=True))
+              }]
+      
+              # Mock pd.read_json to return known df (real DataFrame, not MagicMock, to avoid to_dict issues)
+              sample_df = pd.DataFrame(sample_data)
+              mock_read_json = MagicMock(return_value=sample_df)
+      
+              # Expected flattened DataFrame after json_normalize and column renaming
+              expected_data = {
+                'order_id': ['ORD001'],
+                'item_name': ['Widget A'],
+                'quantity': ['2'],
+                'price_per_unit': ['10.50'],
+                'total_price': ['$21.00'],
+                'order_date': ['2024-01-01'],
+                'region': ['North'],
+                'payment_method': ['Credit'],
+                'status': ['Shipped'],
+                'notes': ['Note1'],
+                'customer_info_customer_id': ['CUST001'],
+                'customer_info_email': ['a@example.com'],
+                'customer_info_age': ['30'],
+                'customer_info_address_street': ['123 Main St'],
+                'customer_info_address_city': ['Anytown'],
+                'customer_info_address_zip': ['12345']
+              }
+              expected_df = pd.DataFrame(expected_data)
+      
+              # Mock PostgresHook instance and engine (no connect context manager needed)
+              mock_hook_instance = MagicMock()
+              mock_engine = MagicMock()
+              mock_hook_instance.get_sqlalchemy_engine.return_value = mock_engine
+      
+              with patch('elt3_dag.pd.read_json', mock_read_json), \
+               patch('elt3_dag.os.path.join', return_value='/fake/path'), \
+               patch('elt3_dag.PostgresHook', return_value=mock_hook_instance) as mock_postgres_class, \
+               patch('elt3_dag.pd.json_normalize') as mock_normalize, \
+               patch('pandas.DataFrame.to_sql') as mock_to_sql:
+              
+                # Set up mock_normalize to return expected_df (after flattening/renaming simulation)
+                mock_normalize.return_value = expected_df
+                
+                extract_and_load()
+      
+              # Assertions on class mock (constructor call)
+              mock_postgres_class.assert_called_once_with(postgres_conn_id='postgres_conn')
+      
+              # Assertions on instance methods
+              mock_hook_instance.get_sqlalchemy_engine.assert_called_once()
+      
+              # Other assertions
+              mock_read_json.assert_called_once_with('/fake/path')
+              mock_normalize.assert_called_once_with(sample_df.to_dict('records'))
+              mock_to_sql.assert_called_once()
+      
+              # Verify to_sql args (passed df_flat, engine as con, and kwargs)
+              to_sql_args, to_sql_kwargs = mock_to_sql.call_args
+              df_flat, con, *_ = to_sql_args  # First arg: df, second: con (engine)
+              self.assertIs(con, mock_engine)  # Verify engine is passed as con
+              self.assertEqual(to_sql_kwargs['name'], 'staging_sales')
+              self.assertEqual(to_sql_kwargs['if_exists'], 'replace')
+              self.assertFalse(to_sql_kwargs['index'])
+              self.assertIn('customer_info_age', to_sql_kwargs['dtype'])
+              self.assertIsInstance(to_sql_kwargs['dtype']['customer_info_age'], Text)  # Check type, not string 'Text'
+      
+              # Verify df_flat (flattening and column renaming)
+              expected_columns = [
+                'order_id', 'item_name', 'quantity', 'price_per_unit', 'total_price',
+                'order_date', 'region', 'payment_method', 'status', 'notes',
+                'customer_info_customer_id', 'customer_info_email', 'customer_info_age',
+                'customer_info_address_street', 'customer_info_address_city', 'customer_info_address_zip'
+              ]
+              self.assertListEqual(list(df_flat.columns), expected_columns)
+              self.assertEqual(len(df_flat), 1)  # From sample
+              self.assertEqual(df_flat['customer_info_age'].dtype, 'object')  # String before SQL cast
+              self.assertEqual(df_flat['order_id'].iloc[0], 'ORD001')  # Sample value check
+      
+              # Compare the actual flattened DF to expected
+              pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), expected_df.reset_index(drop=True))
 
-          if __name__ == '__main__':
-            unittest.main(verbosity=2, exit=False)
+            if __name__ == '__main__':
+              unittest.main(verbosity=2, exit=False)
+          EOF
+          python test_elt.py  # Run the generated test file (add this to actually execute it)
+
+      - name: Start Minikube (if not running)
+        run: |
+          # Check if Minikube is running; start if not
+          if ! minikube status | grep -q "host: Running"; then
+            echo "Starting Minikube..."
+            minikube start --driver=docker  # Use docker driver; adjust if needed (e.g., --driver=virtualbox)
+          else
+            echo "Minikube already running."
+          fi
+          # Wait for cluster to be ready
+          kubectl wait --for=condition=Ready pod --all -n kube-system --timeout=300s
+          # Update kubeconfig context to minikube
+          kubectl config use-context minikube
+
+      - name: Verify Airflow Namespace and Pod
+        run: |
+          # Ensure namespace exists (create if not)
+          kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f -
+          # Wait for scheduler pod to be ready (assumes Helm/chart deployment exists)
+          kubectl wait --for=condition=Ready pod -l component=scheduler -n elt-pipeline --timeout=300s
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
-          # Copy DAG and JSON to Airflow pod
+          # Copy DAG and JSON to Airflow pod (fixed filename)
           POD_NAME=$(kubectl get pods -n elt-pipeline -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
-          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_dag.py -n elt-pipeline
-          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n elt-pipeline
+          kubectl cp elt3_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_sales_pipeline.py -n elt-pipeline  # Renamed to match DAG id
+          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n elt-pipeline  # Assumes sales_record.json is in repo
           # Restart scheduler to pick up new DAG
           kubectl rollout restart deployment/airflow-scheduler -n elt-pipeline
+          # Wait for restart
+          kubectl rollout status deployment/airflow-scheduler -n elt-pipeline --timeout=120s
 
       - name: Test DAG in Airflow
         run: |
-          # Use Airflow CLI to test (install airflow if not)
-          airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)  # Tests without running tasks
+          # Get pod name again after restart
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
+          # Exec into pod and run airflow dags test (assumes airflow CLI is available in pod)
+          kubectl exec -n elt-pipeline $POD_NAME -- airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)
