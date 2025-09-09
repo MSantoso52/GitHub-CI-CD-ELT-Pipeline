@@ -5,7 +5,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 import pandas as pd
 from datetime import datetime
 from sqlalchemy.types import Text
-import os # Add for path handling
+import os  # Add for path handling
 
 
 default_args = {
