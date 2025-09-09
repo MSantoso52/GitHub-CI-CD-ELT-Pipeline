@@ -26,7 +26,7 @@ def extract_and_load():
     # Replace dots in column names
     df_flat.columns = [c.replace('.', '_') for c in df_flat.columns]
     # Load to staging table (all as string to avoid initial type issues)
-    pg_hook = PostgresHook(postgres_conn_id='psql_conn')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_conn')
     engine = pg_hook.get_sqlalchemy_engine()
     df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
                    dtype={
