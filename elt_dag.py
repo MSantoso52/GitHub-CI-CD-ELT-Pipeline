@@ -17,6 +17,7 @@ default_args = {
 dag = DAG('elt_sales_pipeline', default_args=default_args, schedule=None,
           catchup=False)
 
+
 def extract_and_load():
     # Extract and flatten JSON
     file_path = os.path.join(os.path.dirname(__file__), 'sales_record.json')
@@ -29,6 +30,7 @@ def extract_and_load():
     engine = pg_hook.get_sqlalchemy_engine()
     df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
                    dtype={'customer_info_age': Text})  # Only force for age if it's string-like/malformed
+
 
 extract_load_task = PythonOperator(
     task_id='extract_and_load',
