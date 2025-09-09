@@ -48,11 +48,11 @@ jobs:
       - name: Deploy DAG to Airflow on Minikube
         run: |
           # Copy DAG and JSON to Airflow pod
-          POD_NAME=$(kubectl get pods -n airflow -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
-          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_dag.py -n airflow
-          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n airflow
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
+          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_dag.py -n elt-pipeline
+          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n elt-pipeline
           # Restart scheduler to pick up new DAG
-          kubectl rollout restart deployment/airflow-scheduler -n airflow
+          kubectl rollout restart deployment/airflow-scheduler -n elt-pipeline
 
       - name: Test DAG in Airflow
         run: |
