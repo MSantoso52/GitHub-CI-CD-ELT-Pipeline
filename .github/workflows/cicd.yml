@@ -37,7 +37,7 @@ jobs:
 
           def test_extract():
               extract_and_load()
-              conn_str = 'postgresql://postgres:postgres@localhost/postgres'
+              conn_str = 'postgresql://postgres:postgres@localhost/sales_db'
               df = pd.read_sql('SELECT * FROM staging_sales', conn_str)
               assert len(df) > 0
           EOF
