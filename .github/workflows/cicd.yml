@@ -26,7 +26,7 @@ jobs:
       - name: Lint code (Build/Check Syntax)
         run: |
           pip install flake8
-          flake8 elt-dag.py  # Checks for Python style errors
+          flake8 elt_dag.py  # Checks for Python style errors
 
       - name: Unit Test extract_and_load function
         run: |
@@ -49,7 +49,7 @@ jobs:
         run: |
           # Copy DAG and JSON to Airflow pod
           POD_NAME=$(kubectl get pods -n airflow -l component=scheduler -o jsonpath='{.items[0].metadata.name}')
-          kubectl cp elt-dag.py airflow/$POD_NAME:/opt/airflow/dags/elt-dag.py -n airflow
+          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_dag.py -n airflow
           kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n airflow
           # Restart scheduler to pick up new DAG
           kubectl rollout restart deployment/airflow-scheduler -n airflow
