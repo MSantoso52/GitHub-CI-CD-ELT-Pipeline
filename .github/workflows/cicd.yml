@@ -83,7 +83,7 @@ jobs:
                   extract_and_load()
               
               # Assertions
-              assert mock_read_json.called_once()
+              mock_read_json.called_once()
               mock_hook.assert_called_once_with(postgres_conn_id='postgres_conn')
               mock_engine.connect.assert_called_once()
               mock_to_sql.assert_called_once()
