@@ -17,7 +17,6 @@ default_args = {
 dag = DAG('elt_sales_pipeline', default_args=default_args, schedule=None,
           catchup=False)
 
-
 def extract_and_load():
     # Extract and flatten JSON
     file_path = os.path.join(os.path.dirname(__file__), 'sales_record.json')
@@ -25,17 +24,11 @@ def extract_and_load():
     df_flat = pd.json_normalize(df.to_dict('records'))
     # Replace dots in column names
     df_flat.columns = [c.replace('.', '_') for c in df_flat.columns]
-    # Load to staging table (all as string to avoid initial type issues)
+    # Load to staging table (let pandas infer types; only force Text for any string cols if needed)
     pg_hook = PostgresHook(postgres_conn_id='postgres_conn')
     engine = pg_hook.get_sqlalchemy_engine()
     df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
-                   dtype={
-                       'total_price': Text,
-                       'quantity': Text,
-                       'price_per_unit': Text,
-                       'customer_info_age': Text
-                   })  # Force problematic cols as text
-
+                   dtype={'customer_info_age': Text})  # Only force for age if it's string-like/malformed
 
 extract_load_task = PythonOperator(
     task_id='extract_and_load',
