@@ -29,10 +29,8 @@ def extract_and_load():
     pg_hook = PostgresHook(postgres_conn_id='postgres_conn')
     engine = pg_hook.get_sqlalchemy_engine()
     df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
-                   dtype={'total_price': Text,
-                        'quantity': Text,
-                        'price_per_unit': Text,
-                        'customer_info_age': Text})# Force problematic cols as text
+                   dtype={'total_price': Text, 'quantity': Text, 'price_per_unit': Text,
+                        'customer_info_age': Text})  # Force problematic cols as text
 
 
 extract_load_task = PythonOperator(
@@ -40,6 +38,7 @@ extract_load_task = PythonOperator(
     python_callable=extract_and_load,
     dag=dag
 )
+
 
 create_clean_table = SQLExecuteQueryOperator(
     task_id='create_clean_table',
@@ -66,6 +65,7 @@ create_clean_table = SQLExecuteQueryOperator(
     """,
     dag=dag
 )
+
 
 cleanse_data = SQLExecuteQueryOperator(
     task_id='cleanse_data',
@@ -102,6 +102,7 @@ cleanse_data = SQLExecuteQueryOperator(
     """,
     dag=dag
 )
+
 
 extract_load_task >> create_clean_table >> cleanse_data
 # EOF comment add for testing
