@@ -11,7 +11,7 @@ default_args = {
     'start_date': datetime(2024, 1, 1),
 }
 
-dag = DAG('elt_sales_pipeline2', default_args=default_args, schedule=None, catchup=False)
+dag = DAG('elt_sales_pipeline', default_args=default_args, schedule=None, catchup=False)
 
 def extract_and_load():
     # Extract and flatten JSON
