@@ -77,10 +77,10 @@ cleanse_data = SQLExecuteQueryOperator(
     SELECT
         order_id,
         item_name,
-        CASE 
-            WHEN TRIM(quantity) ~ E'^[0-9]+(\\\\[0-9]+)?$' AND TRIM(quantity) != '' 
-            THEN TRIM(quantity)::NUMERIC::INTEGER 
-            ELSE NULL 
+        CASE
+            WHEN TRIM(quantity) ~ E'^[0-9]+(\\\\[0-9]+)?$' AND TRIM(quantity) != ''
+            THEN TRIM(quantity)::NUMERIC::INTEGER
+            ELSE NULL
         END AS quantity,
         NULLIF(TRIM(price_per_unit), '')::NUMERIC,
         NULLIF(TRIM(REPLACE(total_price, '$', '')), '')::NUMERIC,
@@ -89,10 +89,10 @@ cleanse_data = SQLExecuteQueryOperator(
         payment_method,
         customer_info_customer_id,
         customer_info_email,
-        CASE 
-            WHEN TRIM(customer_info_age) ~ E'^[0-9]+(\\\\[0-9]+)?$' AND TRIM(customer_info_age) != '' 
-            THEN TRIM(customer_info_age)::NUMERIC::INTEGER 
-            ELSE NULL 
+        CASE
+            WHEN TRIM(customer_info_age) ~ E'^[0-9]+(\\\\[0-9]+)?$' AND TRIM(customer_info_age) != ''
+            THEN TRIM(customer_info_age)::NUMERIC::INTEGER
+            ELSE NULL
         END AS customer_info_age,
         customer_info_address_street,
         customer_info_address_city,
