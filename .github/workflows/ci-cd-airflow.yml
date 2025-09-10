@@ -87,7 +87,7 @@ jobs:
           sleep 5
     
           # Verify the API endpoint
-          curl -s http://localhost:8080/api/v1/dags | grep "elt-pipeline" || { echo "Failed to verify elt_pipeline in API response"; kill $PORT_FORWARD_PID; exit 1; }
+          curl -s http://localhost:8080/api/v1/dags | grep "elt_pipeline" || { echo "Failed to verify elt_pipeline in API response"; kill $PORT_FORWARD_PID; exit 1; }
     
           # Clean up the port-forward process
           kill $PORT_FORWARD_PID
