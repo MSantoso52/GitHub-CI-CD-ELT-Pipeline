@@ -56,12 +56,12 @@ jobs:
           kubectl get namespace elt-pipeline || kubectl create namespace elt-pipeline
           # Get Airflow scheduler pod name with error handling
           # POD_NAME=$(kubectl get pods -n elt-pipeline -l app=airflow,component=scheduler -o jsonpath="{.items[0].metadata.name}" || echo "")
-          POD_NAME=$(kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep upload-pod)
+          POD_NAME=$(kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep airflow-scheduler)
           if [ -z "$POD_NAME" ]; then
-            echo "Error: No upload-pod in namespace elt-pipeline"
+            echo "Error: No Airflow in namespace elt-pipeline"
             exit 1
           fi
-          DAG_FOLDER=/dags
+          DAG_FOLDER=/opt/airflow/dags
           kubectl cp dags/elt_dag.py $POD_NAME:$DAG_FOLDER/elt_dag.py -n elt-pipeline
           kubectl exec -n elt-pipeline $POD_NAME -- airflow dags reserialize
 
