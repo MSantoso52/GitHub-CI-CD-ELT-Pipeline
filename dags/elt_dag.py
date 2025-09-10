@@ -14,8 +14,8 @@ default_args = {
 }
 
 
-dag = DAG("elt_sales_pipeline", 
-          default_args=default_args, 
+dag = DAG("elt_sales_pipeline",
+          default_args=default_args,
           schedule=None, catchup=False)
 
 
