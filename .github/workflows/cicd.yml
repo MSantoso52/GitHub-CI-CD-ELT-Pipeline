@@ -127,19 +127,23 @@ jobs:
           minikube status || echo "Minikube status check failed"
           if ! minikube status | grep -q "host: Running"; then
             echo "Starting Minikube..."
-            minikube start --driver=docker --wait=all --wait-timeout=600s || { echo "Minikube start failed"; exit 1; }
+            minikube start --driver=docker --wait=all --wait-timeout=600s --memory=4096 --cpus=2 || { echo "Minikube start failed"; exit 1; }
           else
             echo "Minikube already running."
           fi
           kubectl cluster-info || { echo "Cluster info failed"; exit 1; }
-          kubectl get nodes || { echo "Failed to get nodes"; exit 1; }
+          kubectl get nodes -o wide || { echo "Failed to get nodes"; exit 1; }
           kubectl wait --for=condition=Ready pod --all -n kube-system --timeout=300s || { echo "Cluster not ready"; exit 1; }
           kubectl config use-context minikube || { echo "Failed to set context"; exit 1; }
 
       - name: Verify Namespace Creation
         run: |
-          kubectl get namespace elt-pipeline || kubectl create namespace elt-pipeline
-          kubectl get namespace elt-pipeline -o yaml
+          kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f - || { echo "Failed to create namespace"; exit 1; }
+          kubectl get namespace elt-pipeline -o yaml || { echo "Failed to verify namespace"; exit 1; }
+
+      - name: Verify Repository Files
+        run: |
+          ls -l elt_dag.py sales_record.json || { echo "Error: Required files missing"; exit 1; }
 
       - name: Verify Helm values.yaml
         run: |
@@ -159,13 +163,22 @@ jobs:
             --set postgresql.enabled=true \
             --set dags.gitSync.enabled=true \
             --debug || { echo "Helm install failed"; exit 1; }
-          kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler --no-headers || echo "No scheduler pods found"
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=scheduler -n elt-pipeline --timeout=600s || { echo "Scheduler pod not ready"; exit 1; }
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=scheduler -n elt-pipeline --timeout=900s || { echo "Scheduler pod not ready"; exit 1; }
           kubectl get pods -n elt-pipeline --show-labels
 
-      - name: Verify Repository Files
+      - name: Debug Scheduler Pod
+        if: failure()
         run: |
-          ls -l elt_dag.py sales_record.json || { echo "Error: Required files missing"; exit 1; }
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}' || echo "")
+          if [ -n "$POD_NAME" ]; then
+            echo "Scheduler pod logs:"
+            kubectl logs -n elt-pipeline $POD_NAME
+            echo "Scheduler pod description:"
+            kubectl describe pod -n elt-pipeline $POD_NAME
+          else
+            echo "No scheduler pod found"
+            kubectl get pods -n elt-pipeline --show-labels
+          fi
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
@@ -191,4 +204,4 @@ jobs:
             exit 1
           fi
           kubectl exec -n elt-pipeline $POD_NAME -- airflow version || { echo "Airflow CLI not available"; exit 1; }
-          kubectl exec -n elt-pipeline $POD_NAME -- airflow dags test elt_sales_pipeline $(date +%Y-%m-%d) || { echo "DAG test failed"; exit 1; }
+          kubectl exec -n elt-pipeline $POD_NAME -- airflow dags test elt_sales_pipeline $(date +%Y-%m-%d) --timeout=300s || { echo "DAG test failed"; exit 1; }
