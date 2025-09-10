@@ -1,4 +1,0 @@
-apache-airflow==2.9.0  # Or your Airflow version
-pandas==2.0.0
-sqlalchemy==1.4.0
-psycopg2-binary==2.9.0  # For Postgres
