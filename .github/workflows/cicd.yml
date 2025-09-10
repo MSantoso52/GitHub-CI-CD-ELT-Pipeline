@@ -7,16 +7,16 @@ on:
 
 jobs:
   build-test-deploy:
-    runs-on: ubuntu-latest  # Self-hosted runner with Minikube access; ensure minikube/kubectl/helm installed
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4  # Downloads your repo code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  # Matches runner's Python version
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
@@ -24,7 +24,7 @@ jobs:
 
       - name: Lint code (Build/Check Syntax)
         run: |
-          flake8 elt_dag.py  # Fixed filename to match actual file
+          flake8 elt_dag.py
 
       - name: Unit Test extract_and_load function
         run: |
@@ -34,12 +34,11 @@ jobs:
           from unittest.mock import patch, MagicMock
           from sqlalchemy.types import Text
           import sys
-          sys.path.insert(0, '.')  # Ensure current dir is in path for import
-          from elt_dag import extract_and_load  # Matches actual filename
+          sys.path.insert(0, '.')
+          from elt_dag import extract_and_load
 
           class TestExtractAndLoad(unittest.TestCase):
             def test_extract_and_load(self):
-              # Sample JSON data to mock (based on expected structure; using list of dicts for read_json)
               sample_data = [{
                 "order_id": "ORD001",
                 "item_name": "Widget A",
@@ -52,7 +51,7 @@ jobs:
                 "customer_info": {
                   "customer_id": "CUST001",
                   "email": "a@example.com",
-                  "age": "30",  # String to test dtype
+                  "age": "30",
                   "address": {
                     "street": "123 Main St",
                     "city": "Anytown",
@@ -62,12 +61,8 @@ jobs:
                 "status": "Shipped",
                 "notes": "Note1"
               }]
-      
-              # Mock pd.read_json to return known df (real DataFrame, not MagicMock, to avoid to_dict issues)
               sample_df = pd.DataFrame(sample_data)
               mock_read_json = MagicMock(return_value=sample_df)
-      
-              # Expected flattened DataFrame after json_normalize and column renaming
               expected_data = {
                 'order_id': ['ORD001'],
                 'item_name': ['Widget A'],
@@ -87,45 +82,29 @@ jobs:
                 'customer_info_address_zip': ['12345']
               }
               expected_df = pd.DataFrame(expected_data)
-      
-              # Mock PostgresHook instance and engine (no connect context manager needed)
               mock_hook_instance = MagicMock()
               mock_engine = MagicMock()
               mock_hook_instance.get_sqlalchemy_engine.return_value = mock_engine
-      
               with patch('elt_dag.pd.read_json', mock_read_json), \
                    patch('elt_dag.os.path.join', return_value='/fake/path'), \
                    patch('elt_dag.PostgresHook', return_value=mock_hook_instance) as mock_postgres_class, \
                    patch('elt_dag.pd.json_normalize') as mock_normalize, \
                    patch('pandas.DataFrame.to_sql') as mock_to_sql:
-              
-                # Set up mock_normalize to return expected_df (after flattening/renaming simulation)
                 mock_normalize.return_value = expected_df
-                
                 extract_and_load()
-      
-              # Assertions on class mock (constructor call)
               mock_postgres_class.assert_called_once_with(postgres_conn_id='postgres_conn')
-      
-              # Assertions on instance methods
               mock_hook_instance.get_sqlalchemy_engine.assert_called_once()
-      
-              # Other assertions
               mock_read_json.assert_called_once_with('/fake/path')
               mock_normalize.assert_called_once_with(sample_df.to_dict('records'))
               mock_to_sql.assert_called_once()
-      
-              # Verify to_sql args (passed df_flat, engine as con, and kwargs)
               to_sql_args, to_sql_kwargs = mock_to_sql.call_args
-              df_flat, con, *_ = to_sql_args  # First arg: df, second: con (engine)
-              self.assertIs(con, mock_engine)  # Verify engine is passed as con
+              df_flat, con, *_ = to_sql_args
+              self.assertIs(con, mock_engine)
               self.assertEqual(to_sql_kwargs['name'], 'staging_sales')
               self.assertEqual(to_sql_kwargs['if_exists'], 'replace')
               self.assertFalse(to_sql_kwargs['index'])
               self.assertIn('customer_info_age', to_sql_kwargs['dtype'])
-              self.assertIsInstance(to_sql_kwargs['dtype']['customer_info_age'], Text)  # Check type, not string 'Text'
-      
-              # Verify df_flat (flattening and column renaming)
+              self.assertIsInstance(to_sql_kwargs['dtype']['customer_info_age'], Text)
               expected_columns = [
                 'order_id', 'item_name', 'quantity', 'price_per_unit', 'total_price',
                 'order_date', 'region', 'payment_method', 'status', 'notes',
@@ -133,68 +112,83 @@ jobs:
                 'customer_info_address_street', 'customer_info_address_city', 'customer_info_address_zip'
               ]
               self.assertListEqual(list(df_flat.columns), expected_columns)
-              self.assertEqual(len(df_flat), 1)  # From sample
-              self.assertEqual(df_flat['customer_info_age'].dtype, 'object')  # String before SQL cast
-              self.assertEqual(df_flat['order_id'].iloc[0], 'ORD001')  # Sample value check
-      
-              # Compare the actual flattened DF to expected
+              self.assertEqual(len(df_flat), 1)
+              self.assertEqual(df_flat['customer_info_age'].dtype, 'object')
+              self.assertEqual(df_flat['order_id'].iloc[0], 'ORD001')
               pd.testing.assert_frame_equal(df_flat.reset_index(drop=True), expected_df.reset_index(drop=True))
-
           if __name__ == '__main__':
             unittest.main(verbosity=2, exit=False)
           EOF
-          python test_elt.py  # Run the generated test file
+          python test_elt.py
 
       - name: Start Minikube (if not running)
         run: |
-          # Check if Minikube is running; start if not
+          minikube version || { echo "Minikube not installed"; exit 1; }
+          minikube status || echo "Minikube status check failed"
           if ! minikube status | grep -q "host: Running"; then
             echo "Starting Minikube..."
-            minikube start --driver=docker  # Use docker driver; adjust if needed (e.g., --driver=virtualbox)
+            minikube start --driver=docker --wait=all --wait-timeout=600s || { echo "Minikube start failed"; exit 1; }
           else
             echo "Minikube already running."
           fi
-          # Wait for cluster to be ready
-          kubectl wait --for=condition=Ready pod --all -n kube-system --timeout=300s
-          # Update kubeconfig context to minikube
-          kubectl config use-context minikube
+          kubectl cluster-info || { echo "Cluster info failed"; exit 1; }
+          kubectl get nodes || { echo "Failed to get nodes"; exit 1; }
+          kubectl wait --for=condition=Ready pod --all -n kube-system --timeout=300s || { echo "Cluster not ready"; exit 1; }
+          kubectl config use-context minikube || { echo "Failed to set context"; exit 1; }
+
+      - name: Verify Namespace Creation
+        run: |
+          kubectl get namespace elt-pipeline || kubectl create namespace elt-pipeline
+          kubectl get namespace elt-pipeline -o yaml
+
+      - name: Verify Helm values.yaml
+        run: |
+          ls -l values.yaml || { echo "Error: values.yaml not found"; exit 1; }
+          cat values.yaml
 
       - name: Install Airflow in elt-pipeline Namespace
         run: |
-          # Add Helm repo for Airflow (if not already added)
           helm repo add apache-airflow https://airflow.apache.org
           helm repo update
-          # Create namespace if not exists
+          helm search repo apache-airflow/airflow --versions
           kubectl create namespace elt-pipeline --dry-run=client -o yaml | kubectl apply -f -
-          # Install/upgrade Airflow using Helm chart. Assumes values.yaml in repo for custom config (e.g., executor=KubernetesExecutor).
-          # If values.yaml is absent, remove --values and add inline --set flags as needed (e.g., --set executor=KubernetesExecutor).
           helm upgrade --install airflow apache-airflow/airflow \
+            --version 1.15.0 \
             --namespace elt-pipeline \
             --values values.yaml \
             --set postgresql.enabled=true \
-            --set dags.gitSync.enabled=true
-          # Wait for scheduler pod to be ready (standard Helm label)
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=scheduler -n elt-pipeline --timeout=600s
+            --set dags.gitSync.enabled=true \
+            --debug || { echo "Helm install failed"; exit 1; }
+          kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler --no-headers || echo "No scheduler pods found"
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=scheduler -n elt-pipeline --timeout=600s || { echo "Scheduler pod not ready"; exit 1; }
+          kubectl get pods -n elt-pipeline --show-labels
 
-      - name: Verify Airflow Namespace and Pod
+      - name: Verify Repository Files
         run: |
-          # Wait for scheduler pod to be ready (use correct label selector for standard Airflow Helm deployment)
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=airflow-scheduler -n elt-pipeline --timeout=300s
+          ls -l elt_dag.py sales_record.json || { echo "Error: Required files missing"; exit 1; }
 
       - name: Deploy DAG to Airflow on Minikube
         run: |
-          # Copy DAG and JSON to Airflow pod (fixed filename and label)
-          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}')
-          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_sales_pipeline.py -n elt-pipeline  # Renamed to match DAG id
-          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n elt-pipeline  # Assumes sales_record.json is in repo
-          # Restart scheduler to pick up new DAG
-          kubectl rollout restart deployment/airflow-scheduler -n elt-pipeline
-          # Wait for restart
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}' || echo "")
+          if [ -z "$POD_NAME" ]; then
+            echo "Error: No scheduler pod found in namespace elt-pipeline"
+            kubectl get pods -n elt-pipeline --show-labels
+            exit 1
+          fi
+          echo "Scheduler pod: $POD_NAME"
+          ls -l elt_dag.py sales_record.json || { echo "Files not found"; exit 1; }
+          kubectl cp elt_dag.py airflow/$POD_NAME:/opt/airflow/dags/elt_sales_pipeline.py -n elt-pipeline
+          kubectl cp sales_record.json airflow/$POD_NAME:/opt/airflow/dags/sales_record.json -n elt-pipeline
+          kubectl rollout restart deployment/airflow-scheduler -n elt-pipeline || { echo "Rollout restart failed"; exit 1; }
           kubectl rollout status deployment/airflow-scheduler -n elt-pipeline --timeout=120s
 
       - name: Test DAG in Airflow
         run: |
-          # Get pod name again after restart
-          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}')
-          # Exec into pod and run airflow dags test (assumes airflow CLI is available in pod)
-          kubectl exec -n elt-pipeline $POD_NAME -- airflow dags test elt_sales_pipeline $(date +%Y-%m-%d)
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/component=scheduler -o jsonpath='{.items[0].metadata.name}' || echo "")
+          if [ -z "$POD_NAME" ]; then
+            echo "Error: No scheduler pod found"
+            kubectl get pods -n elt-pipeline --show-labels
+            exit 1
+          fi
+          kubectl exec -n elt-pipeline $POD_NAME -- airflow version || { echo "Airflow CLI not available"; exit 1; }
+          kubectl exec -n elt-pipeline $POD_NAME -- airflow dags test elt_sales_pipeline $(date +%Y-%m-%d) || { echo "DAG test failed"; exit 1; }
