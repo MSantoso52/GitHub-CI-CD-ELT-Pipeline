@@ -54,19 +54,19 @@ jobs:
         run: |
           # Assume Airflow is in namespace 'default', pod name pattern 'airflow-webserver-*' or similar
           # Adjust POD_NAME to match your setup (use 'kubectl get pods' to find)
-          POD_NAME=$(kubectl get pods -n default -l app=airflow -o jsonpath="{.items[0].metadata.name}")
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app=airflow -o jsonpath="{.items[0].metadata.name}")
           DAG_FOLDER=/opt/airflow/dags  # Default Airflow DAG path; adjust if custom
           
           # Copy DAG file to Airflow pod
-          kubectl cp dags/elt_dag.py $POD_NAME:$DAG_FOLDER/elt_dag.py -n default
+          kubectl cp dags/elt_dag.py $POD_NAME:$DAG_FOLDER/elt_dag.py -n elt-pipeline
           
           # Optional: Restart Airflow scheduler to pick up new DAG
-          kubectl exec -n default $POD_NAME -- airflow dags reserialize
+          kubectl exec -n elt-pipeline $POD_NAME -- airflow dags reserialize
           # Or if needed: kubectl rollout restart deployment/airflow-scheduler
 
       - name: Verify Deployment
         run: |
           # Check if DAG is visible in Airflow (via CLI or API; adjust port-forward if needed)
-          kubectl port-forward svc/airflow-webserver 8080:8080 -n default &
+          kubectl port-forward svc/airflow-api-server 8080:8080 -n elt-pipeline &
           sleep 5
           curl -s http://localhost:8080/api/v1/dags | grep "elt_sales_pipeline"  # Assumes Airflow API access; add auth if needed
