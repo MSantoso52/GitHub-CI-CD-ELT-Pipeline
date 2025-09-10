@@ -78,7 +78,8 @@ cleanse_data = SQLExecuteQueryOperator(
         order_id,
         item_name,
         CASE
-            WHEN TRIM(quantity) ~ E'^[0-9]+(\\\\[0-9]+)?$' AND TRIM(quantity) != ''
+            WHEN TRIM(quantity) ~ E'^[0-9]+(\\\\[0-9]+)?$'
+            AND TRIM(quantity) != ''
             THEN TRIM(quantity)::NUMERIC::INTEGER
             ELSE NULL
         END AS quantity,
@@ -90,7 +91,8 @@ cleanse_data = SQLExecuteQueryOperator(
         customer_info_customer_id,
         customer_info_email,
         CASE
-            WHEN TRIM(customer_info_age) ~ E'^[0-9]+(\\\\[0-9]+)?$' AND TRIM(customer_info_age) != ''
+            WHEN TRIM(customer_info_age) ~ E'^[0-9]+(\\\\[0-9]+)?$'
+            AND TRIM(customer_info_age) != ''
             THEN TRIM(customer_info_age)::NUMERIC::INTEGER
             ELSE NULL
         END AS customer_info_age,
