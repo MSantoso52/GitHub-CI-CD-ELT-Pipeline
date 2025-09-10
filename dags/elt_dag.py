@@ -29,13 +29,10 @@ def extract_and_load():
     pg_hook = PostgresHook(postgres_conn_id='postgres_conn')
     engine = pg_hook.get_sqlalchemy_engine()
     df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
-                   dtype={
-                        'total_price': Text,
+                   dtype={'total_price': Text,
                         'quantity': Text,
                         'price_per_unit': Text,
-                        'customer_info_age': Text
-                        }
-                  )  # Force problematic cols as text
+                        'customer_info_age': Text})# Force problematic cols as text
 
 
 extract_load_task = PythonOperator(
