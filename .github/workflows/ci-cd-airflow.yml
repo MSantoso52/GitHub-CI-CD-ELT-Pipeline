@@ -1,0 +1,76 @@
+name: CI/CD for Airflow DAGs
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: self-hosted  # Use self-hosted runner for local access
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: flake8 dags/ --count --show-source --statistics
+
+      - name: Check formatting with black
+        run: black --check dags/
+
+  test:
+    runs-on: self-hosted
+    needs: lint  # Run after lint succeeds
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/  # Validates DAG structure and ELT functions
+
+  deploy:
+    runs-on: self-hosted
+    needs: test  # Run only if tests pass
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ensure Minikube is running
+        run: minikube status || minikube start  # Starts if not running
+
+      - name: Deploy DAG to Airflow in Minikube
+        run: |
+          # Assume Airflow is in namespace 'default', pod name pattern 'airflow-webserver-*' or similar
+          # Adjust POD_NAME to match your setup (use 'kubectl get pods' to find)
+          POD_NAME=$(kubectl get pods -n default -l app=airflow -o jsonpath="{.items[0].metadata.name}")
+          DAG_FOLDER=/opt/airflow/dags  # Default Airflow DAG path; adjust if custom
+          
+          # Copy DAG file to Airflow pod
+          kubectl cp dags/elt_dag.py $POD_NAME:$DAG_FOLDER/elt_dag.py -n default
+          
+          # Optional: Restart Airflow scheduler to pick up new DAG
+          kubectl exec -n default $POD_NAME -- airflow dags reserialize
+          # Or if needed: kubectl rollout restart deployment/airflow-scheduler
+
+      - name: Verify Deployment
+        run: |
+          # Check if DAG is visible in Airflow (via CLI or API; adjust port-forward if needed)
+          kubectl port-forward svc/airflow-webserver 8080:8080 -n default &
+          sleep 5
+          curl -s http://localhost:8080/api/v1/dags | grep "elt_sales_pipeline"  # Assumes Airflow API access; add auth if needed
