@@ -16,7 +16,7 @@ jobs:
         run: python3 --version
         
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt --break-system-packages
 
       - name: Lint with flake8
         run: flake8 dags/ --count --show-source --statistics
