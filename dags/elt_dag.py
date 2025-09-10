@@ -14,8 +14,7 @@ default_args = {
 }
 
 
-dag = DAG("elt_pipeline", default_args=default_args, schedule=None,
-          catchup=False)
+dag = DAG("elt_pipeline", default_args=default_args, schedule=None, catchup=False)
 
 
 def extract_and_load():
