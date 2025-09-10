@@ -11,7 +11,7 @@ def dagbag():
 
 def test_dag_loads_without_errors(dagbag):
     assert len(dagbag.import_errors) == 0, "DAG import failures occurred"
-    assert dagbag.dags.get('elt_pipeline') is not None
+    assert dagbag.dags.get('elt_sales_pipeline') is not None
 
 def test_dag_structure():
     assert len(dag.tasks) == 3  # extract_load_task, create_clean_table, cleanse_data
