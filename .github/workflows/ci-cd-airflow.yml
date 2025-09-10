@@ -55,7 +55,8 @@ jobs:
           # Verify namespace exists
           kubectl get namespace elt-pipeline || kubectl create namespace elt-pipeline
           # Get Airflow scheduler pod name with error handling
-          POD_NAME=$(kubectl get pods -n elt-pipeline -l app=airflow,component=scheduler -o jsonpath="{.items[0].metadata.name}" || echo "")
+          # POD_NAME=$(kubectl get pods -n elt-pipeline -l app=airflow,component=scheduler -o jsonpath="{.items[0].metadata.name}" || echo "")
+          POD_NAME=$(kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep airflow-scheduler)
           if [ -z "$POD_NAME" ]; then
             echo "Error: No Airflow scheduler pods found with label app=airflow,component=scheduler in namespace elt-pipeline"
             exit 1
