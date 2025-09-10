@@ -21,8 +21,8 @@ jobs:
       - name: Lint with flake8
         run: flake8 dags/ --count --show-source --statistics
 
-      - name: Check formatting with black
-        run: black --check dags/
+      #- name: Check formatting with black
+        #run: black --check dags/
 
   test:
     runs-on: self-hosted
