@@ -54,7 +54,8 @@ jobs:
         run: |
           # Assume Airflow is in namespace 'default', pod name pattern 'airflow-webserver-*' or similar
           # Adjust POD_NAME to match your setup (use 'kubectl get pods' to find)
-          POD_NAME=$(kubectl get pods -n elt-pipeline -l app=airflow -o jsonpath="{.items[0].metadata.name}")
+          POD_NAME=$(kubectl get pods -n elt-pipeline -l app.kubernetes.io/name=airflow -o jsonpath="{.items[0].metadata.name}")
+          #POD_NAME=$(kubectl get pods -n elt-pipeline -l app=airflow -o jsonpath="{.items[0].metadata.name}")
           DAG_FOLDER=/opt/airflow/dags  # Default Airflow DAG path; adjust if custom
           
           # Copy DAG file to Airflow pod
