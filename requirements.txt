@@ -1,0 +1,7 @@
+apache-airflow==2.10.0  # Or your Airflow version
+apache-airflow-providers-postgres==5.11.0  # For Postgres hook
+pandas==2.2.2
+sqlalchemy==2.0.32
+pytest==8.3.2
+flake8==7.1.1  # For linting
+black==24.8.0  # For formatting checks
