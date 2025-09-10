@@ -20,9 +20,9 @@ dag = DAG('elt_sales_pipeline',
 def extract_and_load():
     # Extract and flatten JSON
     df = pd.read_json('/opt/airflow/dags/sales_record.json')
-    df_flat = pd.json_normalize(df.to_dict('records'))  
+    df_flat = pd.json_normalize(df.to_dict('records'))
     # Fixed: use to_dict('records') to handle nested structures correctly
-    # Replace dots in column names (e.g., customer_info.address.street -> 
+    # Replace dots in column names (e.g., customer_info.address.street ->
     # customer_info_address_street)
     df_flat.columns = [c.replace('.', '_') for c in df_flat.columns]
     # Load to staging table (all as string to avoid initial type issues)
@@ -34,8 +34,9 @@ def extract_and_load():
                         'quantity': Text,
                         'price_per_unit': Text,
                         'customer_info_age': Text
-                })  # Force problematic cols as text
-    
+                        }
+                  )  # Force problematic cols as text
+
 
 extract_load_task = PythonOperator(
     task_id='extract_and_load',
