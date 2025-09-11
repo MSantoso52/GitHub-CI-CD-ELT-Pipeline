@@ -36,18 +36,19 @@ To follow along this project need to be available on system:
 The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
 ![Worlkflow screenshot](github_ci_cd_action.png)
 1. Create repo in github & create local folder from local repo, below file structure:
-   ```bashairflow-elt-pipeline/
+   ```bash
+   airflow-elt-pipeline/
    ├── dags/
-   |     └── elt_dag.py  # Your Airflow DAG file (copy the provided elt_dag
+   │   └── elt_dag.py  # Your Airflow DAG file (copy the provided elt_dag.py here)
    ├── data/
-   |     └── sales_record.json  # Sample data file (copy the provided JSON
+   │   └── sales_record.json  # Sample data file (copy the provided JSON here; used for testing if needed)
    ├── tests/
-   |     └── test_elt_dag.py # Unit tests for the DAG (we'll create this i
-   ├── requirements.txt # Python dependencies for testing (e.g., Airflow
+   │   └── test_elt_dag.py  # Unit tests for the DAG (we'll create this in Step 2)
+   ├── requirements.txt  # Python dependencies for testing (e.g., Airflow, pandas, etc.)
    ├── .github/
-   |     └── workflows/
-   |           └── ci-cd-airflow.yml # The GitHub Actions workflow file (we'
-   └── README.md # Optional: Documentation
+   │   └── workflows/
+   │       └── ci-cd-airflow.yml  # The GitHub Actions workflow file (we'll create this in Step 3)
+   └── README.md  # Optional: Documentation
    ```
 
 2. lint -- Check formating with black
