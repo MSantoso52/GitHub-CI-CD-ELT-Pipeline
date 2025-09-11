@@ -65,33 +65,27 @@ jobs:
           kubectl cp dags/elt_dag.py $POD_NAME:$DAG_FOLDER/elt_dag.py -n elt-pipeline
           kubectl exec -n elt-pipeline $POD_NAME -- airflow dags reserialize
 
-      #- name: Verify Deployment
-      # run: |
-      #   kubectl port-forward svc/airflow-api-server 8080:8080 -n elt-pipeline &
-      #   sleep 5
-      #   curl -s http://localhost:8080/api/v1/dags | grep "elt_pipeline"
 
       - name: Verify Deployment
         run: |
-          # Check if the namespace exists
           kubectl get namespace elt-pipeline || { echo "Namespace elt-pipeline not found"; exit 1; }
-    
-          # Check if the service exists
           kubectl get svc airflow-api-server -n elt-pipeline || { echo "Service airflow-api-server not found"; exit 1; }
-    
-          # Start port-forward in the background and capture its PID
           kubectl port-forward svc/airflow-api-server 8080:8080 -n elt-pipeline &
           PORT_FORWARD_PID=$!
-    
-          # Wait for port-forward to establish
           sleep 20
-    
-          # Verify the API endpoint
-          curl -s -H "Authorization: Bearer ${{ secrets.AIRFLOW_TOKEN }}" http://localhost:8080/api/v2/dags | grep "elt_sales_pipeline"
-          #curl -s -H "Authorization: Bearer ${{ secrets.AIRFLOW_TOKEN }}" http://localhost:8080/api/v2/dags | grep "elt_sales_pipeline" || { echo "Failed to verify elt_pipeline in API response"; kill $PORT_FORWARD_PID; exit 1; }
-          #curl -s -H "Authorization: Bearer ${{ secrets.AIRFLOW_TOKEN }}" http://localhost:8080/api/v2/dags > api_response.json
-          #cat api_response.json
-          #grep "elt_sales_pipeline" api_response.json
-
-          # Clean up the port-forward process
-          kill $PORT_FORWARD_PID
+          # Retry curl command up to 5 times with a 5-second delay
+          for i in {1..5}; do
+            if curl -s -H "Authorization: Bearer ${{ secrets.AIRFLOW_TOKEN }}" http://localhost:8080/api/v2/dags | grep "elt_sales_pipeline"; then
+              echo "DAG elt_sales_pipeline found in API response"
+              break
+            else
+              echo "Attempt $i: Failed to find DAG in API response"
+              sleep 5
+              if [ $i -eq 5 ]; then
+                echo "Error: Failed to verify elt_sales_pipeline after 5 attempts"
+                kill $PORT_FORWARD_PID
+                exit 1
+              fi
+            fi
+          done
+          kill $PORT_FORWARD_PID    
