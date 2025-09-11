@@ -3,6 +3,7 @@ CI/CD for Airflow ELT Pipeline on K8S using GitHub Action
 # *Overview*
 Project repo to demonnstrate CI/CD workflow using GitHub Action. The project to automate build - test - deploy DAG file into Airflow under Kubernetes using Minikube. This workflow utilize CI/CD using GitHub Action push event, the workflow will automate run everytime git push event happen. This workflow will save time and ensure only pass test DAG deploy into production -- Airflow.  
 # *Prerequisites*
+To follow along this project need to be available on system:
 - GitHub account ready
   Access [github.com](https://github.com/) and create account
 - Minikube installed
