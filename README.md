@@ -38,20 +38,15 @@ The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
 1. Create repo in github & create local folder from local repo, below file structure:
    ```bashairflow-elt-pipeline/
    ├── dags/
-   │
-   └── elt_dag.py  # Your Airflow DAG file (copy the provided elt_dag
+   |     └── elt_dag.py  # Your Airflow DAG file (copy the provided elt_dag
    ├── data/
-   │
-   └── sales_record.json  # Sample data file (copy the provided JSON
+   |     └── sales_record.json  # Sample data file (copy the provided JSON
    ├── tests/
-   │
-   └── test_elt_dag.py # Unit tests for the DAG (we'll create this i
+   |     └── test_elt_dag.py # Unit tests for the DAG (we'll create this i
    ├── requirements.txt # Python dependencies for testing (e.g., Airflow
    ├── .github/
-   │
-   └── workflows/
-   │
-   └── ci-cd-airflow.yml # The GitHub Actions workflow file (we'
+   |     └── workflows/
+   |           └── ci-cd-airflow.yml # The GitHub Actions workflow file (we'
    └── README.md # Optional: Documentation
    ```
 
