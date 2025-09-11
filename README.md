@@ -4,6 +4,7 @@ CI/CD for Airflow ELT Pipeline on K8S using GitHub Action
 # *Prerequisites*
 # *Project Flow*
 The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
+![Worlkflow screenshot](github_ci_cd_action.png)
 1. lint -- Check formating with black
    ```yml
    lint:
