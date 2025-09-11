@@ -35,8 +35,29 @@ To follow along this project need to be available on system:
 # *Project Flow*
 The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
 ![Worlkflow screenshot](github_ci_cd_action.png)
+1. Create repo in github & create local folder from local repo, below file structure:
+   ```bashairflow-elt-pipeline/
+   ├── dags/
+   │
+   └── elt_dag.py
+   # Your Airflow DAG file (copy the provided elt_dag
+   ├── data/
+   │
+   └── sales_record.json
+   # Sample data file (copy the provided JSON
+   ├── tests/
+   │
+   └── test_elt_dag.py # Unit tests for the DAG (we'll create this i
+   ├── requirements.txt # Python dependencies for testing (e.g., Airflow
+   ├── .github/
+   │
+   └── workflows/
+   │
+   └── ci-cd-airflow.yml # The GitHub Actions workflow file (we'
+   └── README.md # Optional: Documentation
+   ```
 
-1. lint -- Check formating with black
+2. lint -- Check formating with black
    ```yml
    lint:
     runs-on: self-hosted  # Use self-hosted runner for local access
@@ -53,7 +74,7 @@ The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
       - name: Lint with flake8
         run: flake8 dags/ --count --show-source --statistics
    ```
-2. test --  Validates DAG structure and ELT functions
+3. test --  Validates DAG structure and ELT functions
    ```yml
    steps:
       - name: Checkout code
@@ -68,7 +89,7 @@ The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
       - name: Run tests
         run: pytest test/  # Validates DAG structure and ELT functions
    ```
-3. deploy -- Deploying the DAG into minikube Airflow
+4. deploy -- Deploying the DAG into minikube Airflow
    ```yaml
    name: Deploy DAG to Airflow in Minikube
         run: |
