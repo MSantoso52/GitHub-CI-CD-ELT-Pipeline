@@ -39,12 +39,10 @@ The CI/CD jobs devide three section everyting done by ci_cd_airflow.yml:
    ```bashairflow-elt-pipeline/
    ├── dags/
    │
-   └── elt_dag.py
-   # Your Airflow DAG file (copy the provided elt_dag
+   └── elt_dag.py  # Your Airflow DAG file (copy the provided elt_dag
    ├── data/
    │
-   └── sales_record.json
-   # Sample data file (copy the provided JSON
+   └── sales_record.json  # Sample data file (copy the provided JSON
    ├── tests/
    │
    └── test_elt_dag.py # Unit tests for the DAG (we'll create this i
