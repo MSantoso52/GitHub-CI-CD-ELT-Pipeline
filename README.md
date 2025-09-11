@@ -7,7 +7,7 @@ To follow along this project need to be available on system:
 - GitHub account ready
   * Access [github.com](https://github.com/) and create account
   * Create runner for self-hosted -- to verify code & workflow using local machine
-  * Create secret AIRFLOW_USER, AIRFLOW_PASSWORD, AIRFLOW_TOKEN -- to avoid exposed credenial
+  * Create secret AIRFLOW_USER, AIRFLOW_PASSWORD, AIRFLOW_TOKEN -- to avoid exposed credential
 - Minikube installed
   ```bash
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
