@@ -72,7 +72,7 @@ jobs:
           kubectl get svc airflow-api-server -n elt-pipeline || { echo "Service airflow-api-server not found"; exit 1; }
           kubectl port-forward svc/airflow-api-server 8080:8080 -n elt-pipeline &
           PORT_FORWARD_PID=$!
-          sleep 20
+          sleep 100
           # Retry curl command up to 5 times with a 5-second delay
           for i in {1..5}; do
             if curl -s -H "Authorization: Bearer ${{ secrets.AIRFLOW_TOKEN }}" http://localhost:8080/api/v2/dags | grep "elt_sales_pipeline"; then
