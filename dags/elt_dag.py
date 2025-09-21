@@ -28,7 +28,7 @@ def extract_and_load():
     # Load to staging table - ALL COLUMNS as text
     pg_hook = PostgresHook(postgres_conn_id='postgres_conn')
     engine = pg_hook.get_sqlalchemy_engine()
- 
+
     # Create dtype dict for ALL columns as text
     dtype_dict = {col: Text for col in df_flat.columns}
     df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
