@@ -9,6 +9,23 @@ To follow along this project need to be available on system:
   * Access [github.com](https://github.com/) and create account
   * Create runner for self-hosted -- to verify code & workflow using local machine
   * Create secret AIRFLOW_USER, AIRFLOW_PASSWORD, AIRFLOW_TOKEN -- to avoid exposed credential
+    ```bash
+    # Create token
+    ENDPOINT_URL="http://localhost:8080"
+    curl -X POST "${ENDPOINT_URL}/auth/token" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "<username>", "password": "<password>"}'
+    ```
+    ```bash
+    # Verify the token
+    curl -s -H "Authorization: Bearer <token>" http://localhost:8080/api/v2/dags
+    ```
+    Store the Token in GitHub Actions:
+    * Copy the token value.
+    * In your GitHub repository, go to Settings > Secrets and variables > Actions > Secrets.
+    * Click New repository secret.
+    * Name: AIRFLOW_TOKEN.
+    * Secret: Paste the token value.
 - Minikube installed
   ```bash
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
