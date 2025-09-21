@@ -6,10 +6,12 @@ import pandas as pd
 from datetime import datetime
 from sqlalchemy.types import Text
 
+
 default_args = {
     'owner': 'data_engineer',
     'start_date': datetime(2024, 1, 1),
 }
+
 
 dag = DAG('elt_sales_pipeline',
           default_args=default_args,
