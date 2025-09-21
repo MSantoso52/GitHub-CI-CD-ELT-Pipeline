@@ -16,21 +16,23 @@ dag = DAG('elt_sales_pipeline',
           schedule=None,
           catchup=False)
 
+
 def extract_and_load():
     # Extract and flatten JSON
     df = pd.read_json('/opt/airflow/dags/sales_record.json')
     df_flat = pd.json_normalize(df.to_dict('records'))
-    
+
     # Replace dots in column names
     df_flat.columns = [c.replace('.', '_') for c in df_flat.columns]
-    
+
     # Load to staging table - ALL COLUMNS as text
     pg_hook = PostgresHook(postgres_conn_id='postgres_conn')
     engine = pg_hook.get_sqlalchemy_engine()
     
     # Create dtype dict for ALL columns as text
     dtype_dict = {col: Text for col in df_flat.columns}
-    df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False, dtype=dtype_dict)
+    df_flat.to_sql('staging_sales', engine, if_exists='replace', index=False,
+                   dtype=dtype_dict)
 
 
 extract_load_task = PythonOperator(
